@@ -18,6 +18,7 @@
 .vscode/
 .idea/
 *.iml
+.DS_Store
 
 # Ignore environment files
 .env

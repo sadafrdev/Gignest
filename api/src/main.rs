@@ -3,6 +3,7 @@ mod routes;
 use dotenvy::dotenv;
 use sqlx::PgPool;
 use std::net::SocketAddr;
+mod lib;
 
 #[derive(Clone)]
 pub struct AppState {
