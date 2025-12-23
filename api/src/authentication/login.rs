@@ -4,7 +4,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use sqlx::FromRow;
 
-
 #[derive(Deserialize, Serialize, Debug, FromRow)]
 pub struct User {
     pub password: String,
