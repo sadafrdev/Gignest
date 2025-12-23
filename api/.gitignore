@@ -22,3 +22,5 @@
 
 # Ignore environment files
 .env
+api/.env
+.env.*

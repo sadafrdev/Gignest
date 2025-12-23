@@ -1,14 +1,7 @@
 use crate::AppState;
 use axum::{extract::State, http::StatusCode, Json};
 use serde::Deserialize;
-use serde::Serialize;
-use sqlx::FromRow;
-
-#[derive(Deserialize, Serialize, Debug, FromRow)]
-pub struct User {
-    pub password: String,
-    pub email: String
-}
+use sqlx::postgres::PgRow;
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
@@ -19,8 +12,8 @@ pub struct LoginRequest {
 pub async fn login(
     State(state): State<AppState>,
     Json(payload): Json<LoginRequest>,
-) -> Result<Json<User>, StatusCode> {
-    let rows = sqlx::query_as::<_, User>(
+) -> Result<(), StatusCode> {
+    let rows : Option<PgRow>= sqlx::query(
         r#"
             SELECT 
                 password, email
@@ -38,7 +31,7 @@ pub async fn login(
     })?;
 
     match rows {
-        Some(user) => Ok(Json(user)),
+        Some(_) => Ok(()),
         None => Err(StatusCode::NOT_FOUND),
     }
 }
