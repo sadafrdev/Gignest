@@ -9,7 +9,6 @@ CREATE TABLE users (
   username TEXT UNIQUE,
   phone_number TEXT NOT NULL,
   country country NOT NULL,
-  picture_url TEXT,
   role user_role NOT NULL DEFAULT 'freelancer',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
