@@ -1,8 +1,11 @@
 use crate::AppState;
+use crate::authentication::forgot_password::{send_otp, update_password, verify_otp};
 use crate::authentication::login;
 use crate::authentication::register;
-use crate::authentication::forgot_password::{send_otp, verify_otp, update_password};
-use axum::{Router, routing::{post,get}};
+use axum::{
+    Router,
+    routing::{get, post},
+};
 
 pub fn create_routes(state: AppState) -> Router {
     Router::new()

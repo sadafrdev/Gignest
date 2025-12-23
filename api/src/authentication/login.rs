@@ -1,5 +1,5 @@
 use crate::AppState;
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{Json, extract::State, http::StatusCode};
 use serde::Deserialize;
 use sqlx::postgres::PgRow;
 
@@ -13,7 +13,7 @@ pub async fn login(
     State(state): State<AppState>,
     Json(payload): Json<LoginRequest>,
 ) -> Result<(), StatusCode> {
-    let res: Option<PgRow>= sqlx::query(
+    let res: Option<PgRow> = sqlx::query(
         r#"
             SELECT 
                 password, email

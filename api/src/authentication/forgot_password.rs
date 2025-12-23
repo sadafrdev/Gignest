@@ -1,26 +1,24 @@
-use rand;
-use axum::{Json, extract::State, http::StatusCode,};
-use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
-use reqwest::Client;
-use serde_json::json;
-use sqlx::prelude::FromRow;
 use crate::AppState;
+use axum::{Json, extract::State, http::StatusCode};
+use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use rand;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use sha2::{Digest, Sha256};
 use sqlx::postgres::PgRow;
-use jsonwebtoken::{encode, Algorithm, EncodingKey, Header, decode, DecodingKey, Validation};
+use sqlx::prelude::FromRow;
 use time::{Duration, OffsetDateTime};
 
 #[derive(Deserialize, Debug, Serialize, FromRow)]
 pub struct ResetClaims {
-    pub email: String
+    pub email: String,
 }
 
 pub async fn send_email(email: &String, otp: u32) {
-    let api_key = std::env::var("SENDGRID_API_KEY")
-    .expect("SENDGRID_API_KEY not set");
+    let api_key = std::env::var("SENDGRID_API_KEY").expect("SENDGRID_API_KEY not set");
 
-    let from_email = std::env::var("FROM_EMAIL")
-    .expect("FROM_EMAIL not set");
+    let from_email = std::env::var("FROM_EMAIL").expect("FROM_EMAIL not set");
 
     let client = Client::new();
 
@@ -53,16 +51,16 @@ pub async fn send_email(email: &String, otp: u32) {
 pub async fn send_otp(
     State(state): State<AppState>,
     Json(payload): Json<ResetClaims>,
-)-> Result<(), StatusCode>{
+) -> Result<(), StatusCode> {
     let otp = rand::random::<u32>() % 1_000_000;
     let otp_hash = format!("{:x}", Sha256::digest(otp.to_string().as_bytes())).clone();
 
-    let email= payload.email.clone();
+    let email = payload.email.clone();
 
     let user: Option<PgRow> = sqlx::query(
         r#"
             SELECT email FROM users WHERE email = $1
-        "#
+        "#,
     )
     .bind(&email)
     .fetch_optional(&state.db)
@@ -80,7 +78,7 @@ pub async fn send_otp(
             VALUES (
                 $1, $2, 'password_reset', NOW(), NOW() + INTERVAL '10 minutes'
             )
-        "
+        ",
     )
     .bind(&email)
     .bind(&otp_hash)
@@ -94,9 +92,9 @@ pub async fn send_otp(
 }
 
 #[derive(Deserialize, Debug, Serialize, FromRow)]
-pub struct OTPVerficationPayload{
+pub struct OTPVerficationPayload {
     pub otp: i32,
-    pub email: String
+    pub email: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -108,8 +106,7 @@ pub struct ResetTokenClaims {
 }
 
 pub fn generate_reset_token(email: &str) -> Result<String, jsonwebtoken::errors::Error> {
-    let secret = std::env::var("JWT_RESET_SECRET")
-        .expect("JWT_RESET_SECRET not set");
+    let secret = std::env::var("JWT_RESET_SECRET").expect("JWT_RESET_SECRET not set");
 
     let now = OffsetDateTime::now_utc().unix_timestamp();
     let exp = (OffsetDateTime::now_utc() + Duration::minutes(10)).unix_timestamp();
@@ -130,48 +127,47 @@ pub fn generate_reset_token(email: &str) -> Result<String, jsonwebtoken::errors:
 
 pub async fn verify_otp(
     State(state): State<AppState>,
-    Json(payload): Json<OTPVerficationPayload>
-)-> Result<Json<serde_json::Value>, StatusCode>{
+    Json(payload): Json<OTPVerficationPayload>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
     let email = payload.email.clone();
 
     let otp_str = format!("{:06}", payload.otp);
     let otp_hash = format!("{:x}", Sha256::digest(otp_str.as_bytes()));
 
-    let res= sqlx::query(
-        r#"SELECT email
-            FROM otps
-            WHERE email = $1
-                AND otp_hash = $2
-                AND purpose = 'password_reset'
-                AND expires_at > now()
-            "#
+    let res = sqlx::query(
+        r#"
+                SELECT email
+                FROM otps
+                WHERE email = $1
+                    AND otp_hash = $2
+                    AND purpose = 'password_reset'
+                    AND expires_at > now()
+            "#,
     )
     .bind(&email)
     .bind(otp_hash)
     .fetch_optional(&state.db)
     .await
-    .map_err(|_| 
-        StatusCode::NOT_FOUND
-    )?;
+    .map_err(|_| StatusCode::NOT_FOUND)?;
 
-    if res.is_none(){
-        return Err(StatusCode::UNAUTHORIZED)
+    if res.is_none() {
+        return Err(StatusCode::UNAUTHORIZED);
     }
 
     sqlx::query(
         r#"
-        DELETE FROM otps
-        WHERE email = $1
-          AND purpose = 'password_reset'
-        "#
+            DELETE FROM otps
+            WHERE email = $1
+            AND purpose = 'password_reset'
+        "#,
     )
     .bind(&email)
     .execute(&state.db)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let reset_token = generate_reset_token(&email)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let reset_token =
+        generate_reset_token(&email).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     return Ok(Json(serde_json::json!({
         "reset_token": reset_token
@@ -179,10 +175,10 @@ pub async fn verify_otp(
 }
 
 #[derive(Deserialize, Debug, Serialize, FromRow)]
-pub struct ResetPasswordPayload{
+pub struct ResetPasswordPayload {
     pub email: String,
     pub new_password: String,
-    pub token: String
+    pub token: String,
 }
 pub fn verify_reset_token(token: &str) -> Result<ResetTokenClaims, jsonwebtoken::errors::Error> {
     let secret = std::env::var("JWT_RESET_SECRET").expect("JWT_RESET_SECRET not set");
@@ -207,11 +203,10 @@ pub fn verify_reset_token(token: &str) -> Result<ResetTokenClaims, jsonwebtoken:
 
 pub async fn update_password(
     State(state): State<AppState>,
-    Json(payload): Json<ResetPasswordPayload>
+    Json(payload): Json<ResetPasswordPayload>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     //VErifying Token
-    verify_reset_token(&payload.token)
-        .map_err(|_| StatusCode::UNAUTHORIZED);
+    verify_reset_token(&payload.token).map_err(|_| StatusCode::UNAUTHORIZED);
 
     //Updating Password
     sqlx::query(
@@ -220,7 +215,7 @@ pub async fn update_password(
             SET password = $1
             WHERE email = $2
 
-        "
+        ",
     )
     .bind(payload.new_password)
     .bind(payload.email)
